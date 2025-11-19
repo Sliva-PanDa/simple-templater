@@ -1,0 +1,27 @@
+# .gitignore
+
+# Compiled class files
+*.class
+
+# Log files
+*.log
+
+# Build directory
+/build/
+/.gradle/
+
+# IntelliJ IDEA files
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# virtual machine crash logs
+hs_err_pid*
+
+# Package Files
+*.jar
+
+# Игнорируем файл конфигурации, как требуется в задании
+app.properties
