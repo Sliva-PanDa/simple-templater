@@ -20,8 +20,11 @@ out/
 # virtual machine crash logs
 hs_err_pid*
 
-# Package Files
+# Игнорируем все JAR-файлы
 *.jar
+
+# Но НЕ игнорируем Gradle Wrapper JAR
+!gradle/wrapper/gradle-wrapper.jar
 
 # Игнорируем файл конфигурации, как требуется в задании
 app.properties
