@@ -1,0 +1,451 @@
+1.Откройте Git Bash.
+2. Перейдите в вашу рабочую папку. Скопируйте и выполните следующую команду:
+
+cd "D:/ВсёВсё/проекты/ИППРПО/Lab3/simple-templater for you"
+
+3. Инициализируйте Git-репозиторий. Это создаст скрытую папку .git, где будет храниться вся история вашего проекта.
+git init
+
+4. Создайте структуру папок проекта. Эти команды создадут все необходимые директории для исходного кода, ресурсов и тестов.
+mkdir -p src/main/java/ru/gstu/templater
+mkdir -p src/main/resources
+mkdir -p src/test/java/ru/gstu/templater
+mkdir -p src/test/resources
+
+5. Создайте файл build.gradle. Этот файл является "инструкцией" для системы сборки Gradle. Он описывает, как компилировать, тестировать и упаковывать ваше приложение.
+Выполните команду, чтобы создать пустой файл:
+touch build.gradle
+
+Теперь откройте этот файл в любом текстовом редакторе (например, VS Code, Notepad++) и вставьте в него следующий код:
+// build.gradle
+
+plugins {
+    id 'java'
+    id 'application'
+    id 'jacoco' // Плагин для анализа покрытия кода тестами
+}
+
+group = 'ru.gstu'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Зависимость для парсинга JSON
+    implementation 'org.json:json:20231013'
+
+    // Зависимости для тестирования
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+application {
+    // Указываем главный класс, который будет запускаться
+    mainClass = 'ru.gstu.templater.Main'
+}
+
+test {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport // После тестов генерируем отчет о покрытии
+}
+
+jacocoTestReport {
+    dependsOn test // Отчет зависит от выполнения тестов
+
+    reports {
+        xml.required = false
+        csv.required = false
+        html.outputLocation = layout.buildDirectory.dir('reports/jacoco')
+    }
+
+    // Правило для CI/CD: сборка упадет, если покрытие меньше 90%
+    finalizedBy jacocoTestCoverageVerification
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            element = 'CLASS'
+            // Исключаем главный класс из проверки покрытия
+            excludes = ['ru.gstu.templater.Main']
+
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = 0.90 // 90%
+            }
+        }
+    }
+}
+
+// Настраиваем JAR-файл, чтобы он был исполняемым ("толстый" jar)
+jar {
+    manifest {
+        attributes 'Main-Class': application.mainClass.get()
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
+
+6. Настройте Gradle Wrapper. Это лучший способ гарантировать, что ваш проект будет собираться у всех с одинаковой версией Gradle. Самый простой способ это сделать — через вашу IDE.
+Откройте IntelliJ IDEA.
+Выберите File -> Open...
+Найдите и выберите ваш файл build.gradle (D:\ВсёВсё\проекты\ИППРПО\Lab3\simple-templater for you\build.gradle).
+Нажмите Open as Project.
+IntelliJ IDEA автоматически проанализирует файл, скачает нужную версию Gradle и создаст для вас файлы gradlew, gradlew.bat и папку .gradle. Это может занять минуту.
+
+7. Создайте файл .gitignore. Этот файл указывает Git, какие файлы и папки не нужно отслеживать (например, результаты сборки или файлы IDE).
+В Git Bash выполните команду:
+
+touch .gitignore
+
+Откройте созданный .gitignore и вставьте в него этот текст:
+# .gitignore
+
+# Compiled class files
+*.class
+
+# Log files
+*.log
+
+# Build directory
+/build/
+/.gradle/
+
+# IntelliJ IDEA files
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# virtual machine crash logs
+hs_err_pid*
+
+# Игнорируем все JAR-файлы
+*.jar
+
+# Но НЕ игнорируем Gradle Wrapper JAR
+!gradle/wrapper/gradle-wrapper.jar
+
+# Игнорируем файл конфигурации, как требуется в задании
+app.properties
+
+
+БАЛДЁЖ
+
+Шаг 2: Написание кода приложения
+1.Создайте класс ConfigurationLoader.java.
+Путь: src/main/java/ru/gstu/templater/ConfigurationLoader.java
+Содержимое:
+package ru.gstu.templater;
+
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.Properties;
+
+/**
+ * Загружает конфигурацию из файла app.properties.
+ */
+public class ConfigurationLoader {
+    private final Properties properties;
+
+    /**
+     * Конструктор загружает свойства из указанного файла.
+     *
+     * @param configFilePath путь к файлу конфигурации.
+     * @throws IOException если файл не найден или не может быть прочитан.
+     */
+    public ConfigurationLoader(String configFilePath) throws IOException {
+        properties = new Properties();
+        try (FileReader reader = new FileReader(configFilePath)) {
+            properties.load(reader);
+        }
+    }
+
+    /**
+     * Получает значение свойства по ключу.
+     *
+     * @param key ключ свойства.
+     * @return значение свойства.
+     */
+    public String getProperty(String key) {
+        return properties.getProperty(key);
+    }
+}
+
+2. Создайте класс DataReader.java.
+Путь: src/main/java/ru/gstu/templater/DataReader.java
+Содержимое:
+package ru.gstu.templater;
+
+import org.json.JSONObject;
+import java.io.FileReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+
+/**
+ * Читает и парсит данные из файлов .properties и .json.
+ */
+public class DataReader {
+
+    /**
+     * Читает данные из .properties файла.
+     *
+     * @param filePath путь к файлу.
+     * @return Map с данными.
+     * @throws IOException если файл не найден.
+     */
+    public Map<String, String> readProperties(String filePath) throws IOException {
+        Properties properties = new Properties();
+        try (FileReader reader = new FileReader(filePath)) {
+            properties.load(reader);
+        }
+        Map<String, String> dataMap = new HashMap<>();
+        for (String key : properties.stringPropertyNames()) {
+            dataMap.put(key, properties.getProperty(key));
+        }
+        return dataMap;
+    }
+
+    /**
+     * Читает и "уплощает" данные из .json файла.
+     *
+     * @param filePath путь к файлу.
+     * @return Map с "плоскими" ключами.
+     * @throws IOException если файл не найден.
+     */
+    public Map<String, String> readJson(String filePath) throws IOException {
+        String content = new String(Files.readAllBytes(Paths.get(filePath)));
+        JSONObject jsonObject = new JSONObject(content);
+        Map<String, String> dataMap = new HashMap<>();
+        flattenJson("", jsonObject, dataMap);
+        return dataMap;
+    }
+
+    /**
+     * Рекурсивный метод для преобразования вложенного JSON в плоскую Map.
+     *
+     * @param currentPath текущий префикс ключа.
+     * @param jsonObject  текущий JSON-объект.
+     * @param map         карта для сохранения результатов.
+     */
+    private void flattenJson(String currentPath, JSONObject jsonObject, Map<String, String> map) {
+        for (String key : jsonObject.keySet()) {
+            String newPath = currentPath.isEmpty() ? key : currentPath + "." + key;
+            Object value = jsonObject.get(key);
+            if (value instanceof JSONObject) {
+                flattenJson(newPath, (JSONObject) value, map);
+            } else {
+                map.put(newPath, value.toString());
+            }
+        }
+    }
+}
+
+3. Создайте класс Templater.java.
+Путь: src/main/java/ru/gstu/templater/Templater.java
+Содержимое:
+package ru.gstu.templater;
+
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * Выполняет замену плейсхолдеров в шаблоне на основе предоставленных данных.
+ */
+public class Templater {
+
+    // Паттерн для поиска плейсхолдеров вида ${key.name}
+    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+
+    /**
+     * Заменяет плейсхолдеры в строке-шаблоне на значения из карты данных.
+     *
+     * @param template исходный шаблон.
+     * @param data     карта с данными для замены.
+     * @return строка с замененными плейсхолдерами.
+     */
+    public String process(String template, Map<String, String> data) {
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(template);
+        StringBuilder result = new StringBuilder();
+
+        while (matcher.find()) {
+            String key = matcher.group(1);
+            String value = data.getOrDefault(key, matcher.group(0)); // Если ключа нет, оставляем как было
+            matcher.appendReplacement(result, Matcher.quoteReplacement(value));
+        }
+        matcher.appendTail(result);
+
+        return result.toString();
+    }
+}
+
+4. Создайте главный класс Main.java.
+Путь: src/main/java/ru/gstu/templater/Main.java
+Содержимое:
+package ru.gstu.templater;
+
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Map;
+
+public class Main {
+    public static void main(String[] args) {
+        try {
+            // 1. Загружаем конфигурацию
+            ConfigurationLoader config = new ConfigurationLoader("app.properties");
+            String templatePath = config.getProperty("template.file.path");
+            String dataPath = config.getProperty("data.file.path");
+            String dataFormat = config.getProperty("data.format");
+
+            // 2. Читаем файл шаблона
+            String templateContent = new String(Files.readAllBytes(Paths.get(templatePath)));
+
+            // 3. Читаем данные в зависимости от формата
+            DataReader dataReader = new DataReader();
+            Map<String, String> data;
+            if ("PROPERTIES".equalsIgnoreCase(dataFormat)) {
+                data = dataReader.readProperties(dataPath);
+            } else if ("JSON".equalsIgnoreCase(dataFormat)) {
+                data = dataReader.readJson(dataPath);
+            } else {
+                throw new IllegalArgumentException("Unsupported data format: " + dataFormat);
+            }
+
+            // 4. Обрабатываем шаблон
+            Templater templater = new Templater();
+            String result = templater.process(templateContent, data);
+
+            // 5. Выводим результат
+            System.out.println(result);
+
+        } catch (Exception e) {
+            System.err.println("Error executing templater: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+}
+
+
+Шаг 3: Написание тестов
+Теперь напишем тесты, чтобы убедиться, что наш код работает корректно, и выполнить требование по покрытию кода.
+1. Создайте тестовые файлы с данными.
+Создайте файл src/test/resources/test.properties и добавьте в него:
+user.name=TestUser
+user.email=test@example.com
+
+Создайте файл src/test/resources/test.json и добавьте в него:
+{
+  "order": {
+    "id": "A-123",
+    "total": 99.5
+  },
+  "status": "DELIVERED"
+}
+
+2. Создайте тест DataReaderTest.java.
+Путь: src/test/java/ru/gstu/templater/DataReaderTest.java
+Содержимое:
+package ru.gstu.templater;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Paths;
+import java.util.Map;
+import static org.junit.jupiter.api.Assertions.*;
+
+class DataReaderTest {
+    private DataReader dataReader;
+
+    @BeforeEach
+    void setUp() {
+        dataReader = new DataReader();
+    }
+
+    @Test
+    void testReadProperties() throws IOException, URISyntaxException {
+        String path = Paths.get(getClass().getClassLoader().getResource("test.properties").toURI()).toString();
+        Map<String, String> data = dataReader.readProperties(path);
+
+        assertNotNull(data);
+        assertEquals(2, data.size());
+        assertEquals("TestUser", data.get("user.name"));
+        assertEquals("test@example.com", data.get("user.email"));
+    }
+
+    @Test
+    void testReadAndFlattenJson() throws IOException, URISyntaxException {
+        String path = Paths.get(getClass().getClassLoader().getResource("test.json").toURI()).toString();
+        Map<String, String> data = dataReader.readJson(path);
+
+        assertNotNull(data);
+        assertEquals(3, data.size());
+        assertEquals("A-123", data.get("order.id"));
+        assertEquals("99.5", data.get("order.total"));
+        assertEquals("DELIVERED", data.get("status"));
+    }
+}
+
+3. Создайте тест TemplaterTest.java.
+Путь: src/test/java/ru/gstu/templater/TemplaterTest.java
+Содержимое:
+package ru.gstu.templater;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import java.util.HashMap;
+import java.util.Map;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class TemplaterTest {
+    private Templater templater;
+    private Map<String, String> data;
+
+    @BeforeEach
+    void setUp() {
+        templater = new Templater();
+        data = new HashMap<>();
+        data.put("user.name", "Alice");
+        data.put("order.id", "XYZ-789");
+    }
+
+    @Test
+    void testProcessWithValidPlaceholders() {
+        String template = "Hello, ${user.name}! Your order is ${order.id}.";
+        String expected = "Hello, Alice! Your order is XYZ-789.";
+        String actual = templater.process(template, data);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    void testProcessWithMissingPlaceholder() {
+        String template = "Hello, ${user.name}! Your secret code is ${secret.code}.";
+        String expected = "Hello, Alice! Your secret code is ${secret.code}.";
+        String actual = templater.process(template, data);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    void testProcessWithNoPlaceholders() {
+        String template = "This is a simple text without placeholders.";
+        String actual = templater.process(template, data);
+        assertEquals(template, actual);
+    }
+}
+
+4. Запустите сборку и тесты. Откройте Git Bash в корне проекта и выполните команду. Она скомпилирует код, запустит тесты и создаст отчет о покрытии.
+./gradlew build jacocoTestReport
+
+ВНИМАНИЕ ДОЛЖНА ПОЛУЧИТЬСЯ ТАКАЯ ЛУПНЯ: ![вывод после команды: ./gradlew build jacocoTestReport](D:\ВсёВсё\проекты\ИППРПО\Lab3\simple-templater\docs\images\.gradlew build jacocoTestReport.png)
