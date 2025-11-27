@@ -62,7 +62,7 @@
     ./gradlew build
 
     ```
-или
+**или**
 ```bash
      gradlew build
 
@@ -79,7 +79,8 @@
     touch app.properties
 
     ```
-или
+**или**
+
 ```bash
      type nul > app.properties
 
@@ -107,7 +108,7 @@
     java -jar build/libs/simple-templater-1.0.0.jar
 
     ```
-или
+**или**
 ```bash
      java -jar build\libs\simple-templater-1.0.0.jar
 
