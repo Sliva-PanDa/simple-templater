@@ -7,7 +7,6 @@
 *.log
 
 # Build directory
-/build/
 /.gradle/
 
 # IntelliJ IDEA files

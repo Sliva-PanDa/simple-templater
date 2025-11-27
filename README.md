@@ -59,7 +59,8 @@
 
 3.  **Запусти сборку.** Эта команда сделает все за тебя: скачает зависимости, скомпилирует код, запустит тесты и упакует все в один исполняемый `.jar` файл.
     ```bash
-    ./gradlew build
+    ./gradlew build или gradlew build
+
     ```
     Дождись, пока в конце не появится зеленая надпись **`BUILD SUCCESSFUL`**. Если появилась — все прошло отлично.
 
@@ -69,7 +70,8 @@
 
 1.  В корневой папке проекта (`simple-templater`) создай главный файл `app.properties`:
     ```bash
-    touch app.properties
+    touch app.properties или type nul > app.properties
+
     ```
 
 2.  Открой этот файл `app.properties` блокнотом и вставь в него следующий текст:
@@ -90,7 +92,8 @@
 
 1.  Выполни эту команду в терминале.
     ```bash
-    java -jar build/libs/simple-templater-1.0.0.jar
+    java -jar build/libs/simple-templater-1.0.0.jar или java -jar build\libs\simple-templater-1.0.0.jar
+
     ```
 
 2.  **Готово!** В консоли должен появиться результат работы:
